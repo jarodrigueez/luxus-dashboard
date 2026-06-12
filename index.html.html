@@ -35,6 +35,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;color:#1a1a1a;mi
 .save-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#2e7d32;background:#e8f5e9;padding:4px 10px;border-radius:20px;opacity:0;transition:opacity .4s}
 .save-badge.show{opacity:1}
 .save-badge svg{width:11px;height:11px;stroke:#2e7d32;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.sync-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#1565c0;background:#e3f2fd;padding:4px 10px;border-radius:20px;opacity:0;transition:opacity .4s}
+.sync-badge.show{opacity:1}
+.sync-badge svg{width:11px;height:11px;stroke:#1565c0;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 .mc{background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #efefef}
 .mc-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
@@ -83,30 +86,47 @@ tbody tr.clickable.active td:first-child{border-left:3px solid #1a1a1a;padding-l
 .mbtn{font-size:12px;padding:7px 16px;border-radius:8px;border:1px solid;cursor:pointer;font-family:inherit}
 .mbtn.primary{background:#1a1a1a;color:#fff;border-color:#1a1a1a}.mbtn.primary:hover{background:#333}
 .mbtn.sec{background:#fff;color:#333;border-color:#ddd}.mbtn.sec:hover{background:#f5f5f5}
-.storage-info{font-size:11px;color:#aaa;display:flex;align-items:center;gap:5px;margin-top:8px}
-.storage-info svg{width:11px;height:11px;stroke:#aaa;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.85);z-index:300;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+.loading-overlay.show{display:flex}
+.spinner{width:32px;height:32px;border:3px solid #e0e0e0;border-top-color:#1a1a1a;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay p{font-size:13px;color:#666}
 @media(max-width:920px){.metrics{grid-template-columns:1fr 1fr}.row2,.row3{grid-template-columns:1fr}.main{padding:14px 14px 40px}}
 @media(max-width:560px){.metrics{grid-template-columns:1fr 1fr}.topbar{padding:10px 14px}}
 </style>
 </head>
 <body>
 
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Cargando datos...</p>
+</div>
+
 <div class="topbar">
   <div class="topbar-left">
     <div class="logo">LX</div>
     <div>
       <div class="topbar-title">Dashboard de Ventas · Luxus</div>
-      <div class="topbar-sub" id="fileLabel">Carga tu primer reporte para comenzar</div>
+      <div class="topbar-sub" id="fileLabel">Conectando con la base de datos...</div>
     </div>
   </div>
   <div class="topbar-actions">
+    <span class="sync-badge" id="syncBadge">
+      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Sincronizando...
+    </span>
     <span class="save-badge" id="saveBadge">
       <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-      Guardado
+      Guardado en la nube
     </span>
     <button class="btn" onclick="document.getElementById('fi').click()">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       Agregar reporte
+    </button>
+    <button class="btn" onclick="fetchAndRender()" title="Refrescar datos desde la nube">
+      <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Refrescar
     </button>
     <button class="btn danger" id="btnClear" style="display:none" onclick="confirmClear()">
       <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
@@ -119,7 +139,7 @@ tbody tr.clickable.active td:first-child{border-left:3px solid #1a1a1a;padding-l
 <div class="modal-bg" id="modalBg">
   <div class="modal">
     <h2>¿Borrar todos los datos?</h2>
-    <p>Se eliminarán todos los reportes cargados, incluyendo los guardados en este navegador. Esta acción no se puede deshacer.</p>
+    <p>Se eliminarán <strong>todos</strong> los registros de la base de datos en la nube. Todos los usuarios verán el dashboard vacío. Esta acción no se puede deshacer.</p>
     <div class="modal-actions">
       <button class="mbtn sec" onclick="closeModal()">Cancelar</button>
       <button class="mbtn primary" onclick="doClear()">Sí, borrar todo</button>
@@ -128,7 +148,7 @@ tbody tr.clickable.active td:first-child{border-left:3px solid #1a1a1a;padding-l
 </div>
 
 <div class="main">
-  <div class="drop-zone visible" id="dropZ" onclick="document.getElementById('fi').click()">
+  <div class="drop-zone" id="dropZ" onclick="document.getElementById('fi').click()">
     <svg class="dz-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
     <p>Arrastra aquí tu primer reporte</p>
     <span>Compatible con .xls · .xlsx · .csv — reporte de remisiones de venta</span>
@@ -138,10 +158,10 @@ tbody tr.clickable.active td:first-child{border-left:3px solid #1a1a1a;padding-l
     <div class="files-bar">
       <span class="files-bar-label">Reportes cargados:</span>
       <div id="filesPills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-      <div id="storageInfo" class="storage-info" style="margin-left:auto">
-        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-        <span id="storageText"></span>
-      </div>
+      <span id="cloudInfo" style="font-size:11px;color:#aaa;margin-left:auto;display:flex;align-items:center;gap:4px">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+        <span id="cloudInfoText"></span>
+      </span>
     </div>
 
     <div class="metrics" id="mets"></div>
@@ -207,85 +227,206 @@ tbody tr.clickable.active td:first-child{border-left:3px solid #1a1a1a;padding-l
     </div>
   </div>
 
-  <div class="footer">Dashboard Luxus · Los datos se guardan automáticamente en este navegador · Haz clic en cualquier fila para filtrar</div>
+  <div class="footer">Dashboard Luxus · Datos en la nube · Compartible con cualquier persona</div>
 </div>
 
 <script>
-// ─── STORAGE KEY ─────────────────────────────────────────────────────────────
-const STORE_KEY = 'luxus_dashboard_v2';
+// ─── SUPABASE CONFIG ──────────────────────────────────────────────────────────
+const SB_URL  = 'https://dhvhbvqcltpeyyzsjnfb.supabase.co';
+const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRodmhidnFjbHRwZXl5enNqbmZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNTEyOTgsImV4cCI6MjA5NjgyNzI5OH0.w0cLwB6vKxa4CjGIWLq_Dllo36p_YuAz5MVSX0I6B3Y';
+const TABLE   = 'ventas';
+const META_TABLE = 'reportes_meta';
+const HEADERS = { 'Content-Type':'application/json', 'apikey': SB_KEY, 'Authorization':'Bearer '+SB_KEY, 'Prefer':'return=minimal' };
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
-let RAW = [];          // all accumulated rows
-let fileRows = [];     // rows per file (for removal)
-let loadedFiles = [];  // metadata per file
+let RAW = [];
 let allDays = [];
 let activeFilter = null;
 let dayChartInst = null;
+let loadedMeta = []; // [{name, count, dateRange}]
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
-const COP = v => '$' + Math.round(v).toLocaleString('es-CO');
-const cap = s => String(s).split(' ').map(w => w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
-const getDate = r => {
-  let f = r['Fecha de creación'] || r['Fecha'] || '';
+const COP    = v => '$' + Math.round(v).toLocaleString('es-CO');
+const cap    = s => String(s).split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
+const getDate= r => {
+  let f = r['fecha_creacion'] || r['Fecha de creación'] || r['Fecha'] || '';
   if(typeof f === 'number') f = new Date(Math.round((f-25569)*86400*1000)).toISOString().slice(0,10);
   return String(f).slice(0,10);
 };
-const keyOf = r => {
-  const id = r['ID remisión'] || r['ID remision'] || r['Id remisión'] || r['id_remision'];
-  if(id && String(id).trim()) return 'id:'+String(id).trim();
-  return getDate(r)+'|'+String(r['Cliente']||'').trim()+'|'+String(r['Total neto']||'').trim();
+const showLoading = msg => {
+  document.getElementById('loadingMsg').textContent = msg || 'Cargando...';
+  document.getElementById('loadingOverlay').classList.add('show');
+};
+const hideLoading = () => document.getElementById('loadingOverlay').classList.remove('show');
+const showSaved   = () => {
+  const b = document.getElementById('saveBadge'); b.classList.add('show');
+  setTimeout(()=>b.classList.remove('show'), 2500);
+};
+const showSync = v => {
+  const b = document.getElementById('syncBadge');
+  b.classList.toggle('show', v);
 };
 
-// ─── PERSIST ─────────────────────────────────────────────────────────────────
-let saveTimer = null;
-function scheduleSave() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveToStorage, 600);
+// ─── SUPABASE: ENSURE TABLE EXISTS ───────────────────────────────────────────
+// We use Supabase REST API — table must exist. We'll try to create via RPC if needed.
+// Actually we'll just try to insert and catch errors, guiding user if table doesn't exist.
+
+async function sbFetch(path, opts={}) {
+  const res = await fetch(SB_URL + path, {
+    ...opts,
+    headers: { ...HEADERS, ...(opts.headers||{}) }
+  });
+  return res;
 }
 
-function saveToStorage() {
-  try {
-    const payload = JSON.stringify({ RAW, fileRows, loadedFiles });
-    localStorage.setItem(STORE_KEY, payload);
-    // Show "Guardado" badge briefly
-    const badge = document.getElementById('saveBadge');
-    badge.classList.add('show');
-    setTimeout(() => badge.classList.remove('show'), 2000);
-    updateStorageInfo();
-  } catch(e) {
-    // localStorage full (5MB limit) — warn user
-    if(e.name === 'QuotaExceededError') {
-      alert('⚠️ El almacenamiento del navegador está lleno.\nConsidera borrar reportes antiguos con la ✕ en cada pastilla.');
+// ─── LOAD ALL ROWS FROM SUPABASE ─────────────────────────────────────────────
+async function fetchAllRows() {
+  // Supabase returns max 1000 rows by default — paginate
+  let all = [], from = 0, pageSize = 1000;
+  while(true) {
+    const res = await sbFetch(`/rest/v1/${TABLE}?select=*&order=fecha_creacion.asc`, {
+      headers: { 'Range': `${from}-${from+pageSize-1}`, 'Range-Unit': 'items' }
+    });
+    if(!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.message || err.hint || 'Error consultando la base de datos');
     }
+    const rows = await res.json();
+    all = all.concat(rows);
+    if(rows.length < pageSize) break;
+    from += pageSize;
   }
+  return all;
 }
 
-function loadFromStorage() {
+async function fetchMeta() {
+  const res = await sbFetch(`/rest/v1/${META_TABLE}?select=*&order=created_at.asc`);
+  if(!res.ok) return [];
+  return res.json();
+}
+
+// ─── FETCH AND RENDER ────────────────────────────────────────────────────────
+async function fetchAndRender() {
+  showSync(true);
   try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if(!raw) return false;
-    const data = JSON.parse(raw);
-    RAW = data.RAW || [];
-    fileRows = data.fileRows || [];
-    loadedFiles = data.loadedFiles || [];
-    return RAW.length > 0;
-  } catch(e) { return false; }
+    const [rows, meta] = await Promise.all([fetchAllRows(), fetchMeta()]);
+    RAW = rows;
+    loadedMeta = meta;
+    rebuildDays();
+    if(RAW.length > 0) {
+      updateTopbarLabel();
+      document.getElementById('dropZ').classList.remove('visible');
+      document.getElementById('dash').style.display = 'block';
+      document.getElementById('btnClear').style.display = 'flex';
+      activeFilter = null; clearFilterUI();
+      renderFilePills();
+      renderAll(RAW);
+    } else {
+      document.getElementById('fileLabel').textContent = 'No hay datos aún — carga el primer reporte';
+      document.getElementById('dropZ').classList.add('visible');
+      document.getElementById('dash').style.display = 'none';
+      document.getElementById('btnClear').style.display = 'none';
+    }
+    document.getElementById('cloudInfoText').textContent = RAW.length.toLocaleString('es-CO')+' registros en la nube';
+  } catch(e) {
+    document.getElementById('fileLabel').textContent = 'Error de conexión — '+e.message;
+    // Maybe table doesn't exist yet
+    if(e.message.includes('does not exist') || e.message.includes('relation')) {
+      document.getElementById('fileLabel').textContent = 'Primera vez: crea las tablas en Supabase (ver instrucciones)';
+      showSetupInstructions();
+    }
+  } finally { showSync(false); }
 }
 
-function updateStorageInfo() {
-  try {
-    const bytes = new Blob([localStorage.getItem(STORE_KEY)||'']).size;
-    const kb = (bytes/1024).toFixed(0);
-    const mb = (bytes/1024/1024).toFixed(2);
-    document.getElementById('storageText').textContent =
-      bytes < 1024*500 ? kb+' KB guardados' : mb+' MB guardados (límite ~5 MB)';
-  } catch(e){}
+// ─── SETUP INSTRUCTIONS (first time) ─────────────────────────────────────────
+function showSetupInstructions() {
+  document.getElementById('dropZ').innerHTML = `
+    <svg class="dz-icon" viewBox="0 0 24 24" style="stroke:#e65100"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <p style="color:#e65100">Primera configuración requerida</p>
+    <span>Ve a <strong>Supabase → SQL Editor</strong> y ejecuta el SQL que aparece en la consola (F12)</span>`;
+  document.getElementById('dropZ').classList.add('visible');
+  console.log(`
+── EJECUTA ESTE SQL EN SUPABASE → SQL EDITOR ──────────────────────────────
+CREATE TABLE IF NOT EXISTS ventas (
+  id               bigserial PRIMARY KEY,
+  row_key          text UNIQUE,
+  fecha_creacion   date,
+  sucursal         text,
+  vendedor         text,
+  ubicacion_venta  text,
+  departamento     text,
+  ciudad           text,
+  cliente          text,
+  total_neto       numeric,
+  total_bruto      numeric,
+  descuentos       numeric,
+  extra            jsonb
+);
+
+CREATE TABLE IF NOT EXISTS reportes_meta (
+  id          bigserial PRIMARY KEY,
+  name        text,
+  count       int,
+  date_range  text,
+  created_at  timestamptz DEFAULT now()
+);
+
+ALTER TABLE ventas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE reportes_meta ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "public read ventas"  ON ventas         FOR SELECT USING (true);
+CREATE POLICY "public insert ventas" ON ventas        FOR INSERT WITH CHECK (true);
+CREATE POLICY "public delete ventas" ON ventas        FOR DELETE USING (true);
+CREATE POLICY "public read meta"    ON reportes_meta  FOR SELECT USING (true);
+CREATE POLICY "public insert meta"  ON reportes_meta  FOR INSERT WITH CHECK (true);
+CREATE POLICY "public delete meta"  ON reportes_meta  FOR DELETE USING (true);
+────────────────────────────────────────────────────────────────────────────
+  `);
 }
 
-// ─── DEDUPLICATION ───────────────────────────────────────────────────────────
-function dedupeRows(existing, incoming) {
-  const seen = new Set(existing.map(keyOf));
-  return incoming.filter(r => !seen.has(keyOf(r)));
+// ─── MAP INCOMING ROW → DB SCHEMA ────────────────────────────────────────────
+function mapRow(r) {
+  const getDate2 = r => {
+    let f = r['Fecha de creación'] || r['Fecha'] || '';
+    if(typeof f === 'number') f = new Date(Math.round((f-25569)*86400*1000)).toISOString().slice(0,10);
+    return String(f).slice(0,10) || null;
+  };
+  const id = r['ID remisión'] || r['ID remision'] || r['Id remisión'] || r['id_remision'];
+  const fecha = getDate2(r);
+  const key = id ? 'id:'+String(id).trim() : (fecha+'|'+String(r['Cliente']||'').trim()+'|'+String(r['Total neto']||'').trim());
+  return {
+    row_key:         key,
+    fecha_creacion:  fecha,
+    sucursal:        String(r['Sucursal']||'').trim() || null,
+    vendedor:        String(r['Vendedor']||'').trim() || null,
+    ubicacion_venta: String(r['Ubicación de venta']||'').trim() || null,
+    departamento:    String(r['Departamento']||'').trim() || null,
+    ciudad:          String(r['Ciudad']||'').trim() || null,
+    cliente:         String(r['Cliente']||'').trim() || null,
+    total_neto:      Number(r['Total neto']||0),
+    total_bruto:     Number(r['Total bruto']||0),
+    descuentos:      Number(r['Descuentos']||0),
+    extra:           null
+  };
+}
+
+// ─── INSERT ROWS IN CHUNKS ────────────────────────────────────────────────────
+async function insertChunked(rows, chunkSize=200) {
+  let inserted = 0;
+  for(let i=0; i<rows.length; i+=chunkSize) {
+    const chunk = rows.slice(i, i+chunkSize);
+    const res = await sbFetch(`/rest/v1/${TABLE}`, {
+      method: 'POST',
+      headers: { 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
+      body: JSON.stringify(chunk)
+    });
+    if(!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.message || err.hint || 'Error insertando datos');
+    }
+    inserted += chunk.length;
+    document.getElementById('loadingMsg').textContent = `Subiendo... ${inserted} / ${rows.length} registros`;
+  }
 }
 
 // ─── FILE LOADING ─────────────────────────────────────────────────────────────
@@ -293,253 +434,187 @@ function handleFileInput(file) {
   if(!file) return;
   document.getElementById('fi').value = '';
   const reader = new FileReader();
-  reader.onload = e => {
+  reader.onload = async e => {
     try {
-      let rows;
-      if(file.name.toLowerCase().endsWith('.csv')){
+      let rawRows;
+      if(file.name.toLowerCase().endsWith('.csv')) {
         const text = new TextDecoder('latin1').decode(e.target.result);
         const lines = text.trim().split('\n');
         const hdrs = lines[0].split(',').map(h=>h.replace(/"/g,'').trim());
-        rows = lines.slice(1).map(l=>{
-          const v = l.split(',').map(x=>x.replace(/"/g,'').trim());
-          const o={};
-          hdrs.forEach((h,i)=>{ const n=parseFloat(v[i]); o[h]=isNaN(n)?v[i]:n; });
-          return o;
+        rawRows = lines.slice(1).map(l=>{
+          const v=l.split(',').map(x=>x.replace(/"/g,'').trim());
+          const o={};hdrs.forEach((h,i)=>{const n=parseFloat(v[i]);o[h]=isNaN(n)?v[i]:n;});return o;
         });
       } else {
         const wb = XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-        rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+        rawRows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
       }
-      if(!rows.length){ alert('El archivo está vacío o no se pudo leer.'); return; }
+      if(!rawRows.length){ alert('El archivo está vacío.'); return; }
 
-      const newRows = dedupeRows(RAW, rows);
-      const dupCount = rows.length - newRows.length;
+      showLoading('Preparando '+rawRows.length+' registros...');
 
-      if(newRows.length === 0){
-        alert(`Este reporte no tiene registros nuevos.\nTodos sus ${rows.length} registros ya estaban cargados.`);
-        return;
-      }
+      // Map to DB schema
+      const mapped = rawRows.map(mapRow).filter(r=>r.fecha_creacion);
 
-      RAW = RAW.concat(newRows);
-      fileRows.push(newRows);
+      // Insert (ignore duplicates via row_key UNIQUE)
+      await insertChunked(mapped);
 
-      const fileDays = [...new Set(newRows.map(r=>getDate(r)).filter(d=>d.length===10))].sort();
-      const drLabel = fileDays.length >= 2
+      // Save meta
+      const fileDays = [...new Set(mapped.map(r=>r.fecha_creacion).filter(Boolean))].sort();
+      const drLabel = fileDays.length>=2
         ? fileDays[0].slice(5).replace('-','/')+' — '+fileDays[fileDays.length-1].slice(5).replace('-','/')
         : (fileDays[0]?.slice(5).replace('-','/') || '?');
 
-      loadedFiles.push({
-        name: file.name.length > 30 ? file.name.slice(0,27)+'…' : file.name,
-        count: newRows.length,
-        dateRange: drLabel
+      await sbFetch(`/rest/v1/${META_TABLE}`, {
+        method: 'POST',
+        body: JSON.stringify({ name: file.name.length>30?file.name.slice(0,27)+'…':file.name, count: mapped.length, date_range: drLabel })
       });
 
-      rebuildDays();
-      updateTopbarLabel();
-      document.getElementById('dropZ').classList.remove('visible');
-      document.getElementById('dash').style.display = 'block';
-      document.getElementById('btnClear').style.display = 'flex';
-
-      activeFilter = null;
-      clearFilterUI();
-      renderFilePills();
-      renderAll(RAW);
-      scheduleSave(); // ← save after every new file
-    } catch(err){ alert('Error leyendo el archivo:\n'+err.message); }
+      showSaved();
+      // Reload from cloud
+      await fetchAndRender();
+    } catch(err) {
+      alert('Error: '+err.message);
+      if(err.message.includes('does not exist')) showSetupInstructions();
+    } finally { hideLoading(); }
   };
   reader.readAsArrayBuffer(file);
-}
-
-// ─── REBUILD HELPERS ─────────────────────────────────────────────────────────
-function rebuildDays() {
-  const daySet = {};
-  RAW.forEach(r=>{ const d=getDate(r); if(d.length===10) daySet[d]=1; });
-  allDays = Object.keys(daySet).sort();
-}
-
-function updateTopbarLabel() {
-  const td = allDays;
-  const rl = td.length>=2
-    ? td[0].slice(5).replace('-','/')+' al '+td[td.length-1].slice(5).replace('-','/')
-    : (td[0]?.slice(5).replace('-','/') || '');
-  document.getElementById('fileLabel').textContent = rl+' · '+RAW.length.toLocaleString('es-CO')+' remisiones';
-}
-
-// ─── FILE PILLS ──────────────────────────────────────────────────────────────
-function renderFilePills() {
-  document.getElementById('filesPills').innerHTML = loadedFiles.map((f,i)=>`
-    <span class="file-pill">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      ${f.name} <span style="color:#bbb">(${f.count.toLocaleString('es-CO')} reg · ${f.dateRange})</span>
-      <button class="fp-x" onclick="removeFile(${i})" title="Quitar este reporte">✕</button>
-    </span>`).join('');
-}
-
-// ─── REMOVE SINGLE FILE ──────────────────────────────────────────────────────
-function removeFile(idx) {
-  fileRows.splice(idx, 1);
-  loadedFiles.splice(idx, 1);
-  RAW = fileRows.flat();
-  rebuildDays();
-  if(RAW.length === 0){ doClear(true); return; }
-  updateTopbarLabel();
-  activeFilter = null;
-  clearFilterUI();
-  renderFilePills();
-  renderAll(RAW);
-  scheduleSave();
 }
 
 // ─── CLEAR ALL ───────────────────────────────────────────────────────────────
 function confirmClear(){ document.getElementById('modalBg').classList.add('open'); }
 function closeModal()  { document.getElementById('modalBg').classList.remove('open'); }
-function doClear(silent) {
+async function doClear() {
   closeModal();
-  RAW = []; fileRows = []; loadedFiles = []; allDays = []; activeFilter = null;
-  clearFilterUI();
-  localStorage.removeItem(STORE_KEY);
-  document.getElementById('fileLabel').textContent = 'Carga tu primer reporte para comenzar';
-  document.getElementById('dash').style.display = 'none';
-  document.getElementById('dropZ').classList.add('visible');
-  document.getElementById('btnClear').style.display = 'none';
-  document.getElementById('filesPills').innerHTML = '';
-  if(dayChartInst){ dayChartInst.destroy(); dayChartInst = null; }
+  showLoading('Borrando todos los datos...');
+  try {
+    await sbFetch(`/rest/v1/${TABLE}?id=gt.0`, { method:'DELETE' });
+    await sbFetch(`/rest/v1/${META_TABLE}?id=gt.0`, { method:'DELETE' });
+    RAW=[]; loadedMeta=[]; allDays=[];
+    document.getElementById('fileLabel').textContent='No hay datos — carga el primer reporte';
+    document.getElementById('dash').style.display='none';
+    document.getElementById('dropZ').classList.add('visible');
+    document.getElementById('btnClear').style.display='none';
+    document.getElementById('cloudInfoText').textContent='0 registros en la nube';
+  } catch(e){ alert('Error borrando: '+e.message); }
+  finally { hideLoading(); }
+}
+
+// ─── REBUILD HELPERS ─────────────────────────────────────────────────────────
+function rebuildDays() {
+  const daySet={};
+  RAW.forEach(r=>{ const d=r.fecha_creacion||''; if(d.length===10) daySet[d]=1; });
+  allDays = Object.keys(daySet).sort();
+}
+function updateTopbarLabel() {
+  const td=allDays;
+  const rl=td.length>=2?td[0].slice(5).replace('-','/')+' al '+td[td.length-1].slice(5).replace('-','/'):td[0]?.slice(5).replace('-','/')||'';
+  document.getElementById('fileLabel').textContent=rl+' · '+RAW.length.toLocaleString('es-CO')+' remisiones';
+}
+function renderFilePills() {
+  document.getElementById('filesPills').innerHTML = loadedMeta.map((f,i)=>`
+    <span class="file-pill">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      ${f.name} <span style="color:#bbb">(${(f.count||0).toLocaleString('es-CO')} reg · ${f.date_range||''})</span>
+    </span>`).join('');
 }
 
 // ─── FILTER ──────────────────────────────────────────────────────────────────
 function applyFilter(col, val, labelText) {
-  if(activeFilter && activeFilter.col===col && activeFilter.val===val){ clearFilter(); return; }
-  activeFilter = {col, val};
-  const filtered = RAW.filter(r => String(r[col]||'').trim() === val);
-  document.getElementById('noFilter').style.display = 'none';
-  const pill = document.getElementById('activeFilterPill');
-  pill.style.display = 'flex';
-  pill.innerHTML = `<div class="active-filter"><span>${labelText}: <strong>${cap(val)}</strong></span><button onclick="clearFilter()" title="Quitar filtro">✕</button></div>`;
-  const hint = document.getElementById('chartHint');
-  hint.textContent = cap(val); hint.style.display = '';
+  if(activeFilter&&activeFilter.col===col&&activeFilter.val===val){clearFilter();return;}
+  activeFilter={col,val};
+  const filtered=RAW.filter(r=>String(r[col]||'').trim()===val);
+  document.getElementById('noFilter').style.display='none';
+  const pill=document.getElementById('activeFilterPill');
+  pill.style.display='flex';
+  pill.innerHTML=`<div class="active-filter"><span>${labelText}: <strong>${cap(val)}</strong></span><button onclick="clearFilter()" title="Quitar filtro">✕</button></div>`;
+  const hint=document.getElementById('chartHint');
+  hint.textContent=cap(val);hint.style.display='';
   renderDayChart(filtered);
-  document.querySelectorAll('tbody tr.clickable').forEach(tr =>
-    tr.classList.toggle('active', tr.dataset.col===col && tr.dataset.val===val));
+  document.querySelectorAll('tbody tr.clickable').forEach(tr=>tr.classList.toggle('active',tr.dataset.col===col&&tr.dataset.val===val));
 }
-
 function clearFilter() {
-  activeFilter = null;
-  clearFilterUI();
-  renderDayChart(RAW);
-  document.querySelectorAll('tbody tr.clickable').forEach(tr => tr.classList.remove('active'));
+  activeFilter=null;clearFilterUI();renderDayChart(RAW);
+  document.querySelectorAll('tbody tr.clickable').forEach(tr=>tr.classList.remove('active'));
 }
-
 function clearFilterUI() {
-  document.getElementById('noFilter').style.display = '';
-  document.getElementById('activeFilterPill').style.display = 'none';
-  const hint = document.getElementById('chartHint');
-  if(hint){ hint.textContent = ''; hint.style.display = 'none'; }
+  document.getElementById('noFilter').style.display='';
+  document.getElementById('activeFilterPill').style.display='none';
+  const h=document.getElementById('chartHint');if(h){h.textContent='';h.style.display='none';}
 }
 
 // ─── RENDER ALL ──────────────────────────────────────────────────────────────
 function renderAll(rows) {
-  const sum = k => rows.map(r=>Number(r[k]||0)).reduce((a,b)=>a+b,0);
-  const tot = sum('Total neto'), bruto = sum('Total bruto'), desc = sum('Descuentos');
-  renderMetrics(tot, bruto, desc, rows.length ? tot/rows.length : 0, rows.length);
+  const sum=k=>rows.map(r=>Number(r[k]||0)).reduce((a,b)=>a+b,0);
+  const tot=sum('total_neto'),bruto=sum('total_bruto'),desc=sum('descuentos');
+  renderMetrics(tot,bruto,desc,rows.length?tot/rows.length:0,rows.length);
   renderDayChart(rows);
-  const grp = col => {
+  const grp=col=>{
     const g={};
-    rows.forEach(r=>{ const k=String(r[col]||'Sin dato').trim()||'Sin dato'; g[k]=(g[k]||0)+Number(r['Total neto']||0); });
+    rows.forEach(r=>{const k=String(r[col]||'Sin dato').trim()||'Sin dato';g[k]=(g[k]||0)+Number(r['total_neto']||0);});
     return Object.entries(g).map(([n,t])=>({n,t})).filter(x=>x.t>0).sort((a,b)=>b.t-a.t);
   };
-  renderClickTable('tSuc',  grp('Sucursal'),           'Sucursal',          'Sucursal',           false);
-  renderClickTable('tUbic', grp('Ubicación de venta'), 'Ubicación',         'Ubicación de venta', false);
-  renderClickTable('tVend', grp('Vendedor').slice(0,15),'Vendedor',          'Vendedor',           true);
-  renderClickTable('tDept', grp('Departamento'),        'Departamento',      'Departamento',       false);
-  renderClickTable('tCity', grp('Ciudad').slice(0,15),  'Ciudad',            'Ciudad',             false);
+  renderClickTable('tSuc', grp('sucursal'),        'Sucursal',    'sucursal',        false);
+  renderClickTable('tUbic',grp('ubicacion_venta'), 'Ubicación',   'ubicacion_venta', false);
+  renderClickTable('tVend',grp('vendedor').slice(0,15),'Vendedor','vendedor',        true);
+  renderClickTable('tDept',grp('departamento'),    'Departamento','departamento',    false);
+  renderClickTable('tCity',grp('ciudad').slice(0,15),'Ciudad',    'ciudad',          false);
 }
-
-// ─── METRICS ─────────────────────────────────────────────────────────────────
-function renderMetrics(tot, bruto, desc, ticket, cnt) {
-  const pct = bruto>0 ? ((desc/bruto)*100).toFixed(1)+'% desc.' : '0%';
-  document.getElementById('mets').innerHTML = [
+function renderMetrics(tot,bruto,desc,ticket,cnt) {
+  const pct=bruto>0?((desc/bruto)*100).toFixed(1)+'% desc.':'0%';
+  document.getElementById('mets').innerHTML=[
     {ic:'ig',icon:'<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',lbl:'Total neto',val:COP(tot),sub:COP(bruto)+' bruto'},
     {ic:'ib',icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',lbl:'Remisiones',val:cnt.toLocaleString('es-CO'),sub:'pedidos facturados'},
     {ic:'io',icon:'<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39A2 2 0 0 0 9.68 19h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',lbl:'Ticket promedio',val:COP(ticket),sub:'por remisión'},
     {ic:'ir',icon:'<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',lbl:'Descuentos',val:COP(desc),sub:pct}
   ].map(it=>`<div class="mc"><div class="mc-icon ${it.ic}"><svg viewBox="0 0 24 24">${it.icon}</svg></div><div class="mc-lbl">${it.lbl}</div><div class="mc-val">${it.val}</div><div class="mc-sub">${it.sub}</div></div>`).join('');
 }
-
-// ─── DAY CHART ───────────────────────────────────────────────────────────────
 function renderDayChart(rows) {
   const g={};
-  rows.forEach(r=>{ const d=getDate(r); if(d.length===10) g[d]=(g[d]||0)+Number(r['Total neto']||0); });
-  const labels = allDays.map(d=>d.slice(5).replace('-','/'));
-  const data   = allDays.map(d=>Math.round((g[d]||0)/1000000*10)/10);
-  const isF    = activeFilter !== null;
-  if(dayChartInst) dayChartInst.destroy();
-  dayChartInst = new Chart(document.getElementById('dayChart'),{
+  rows.forEach(r=>{const d=r.fecha_creacion||'';if(d.length===10)g[d]=(g[d]||0)+Number(r['total_neto']||0);});
+  const labels=allDays.map(d=>d.slice(5).replace('-','/'));
+  const data=allDays.map(d=>Math.round((g[d]||0)/1000000*10)/10);
+  const isF=activeFilter!==null;
+  if(dayChartInst)dayChartInst.destroy();
+  dayChartInst=new Chart(document.getElementById('dayChart'),{
     type:'bar',
-    data:{labels,datasets:[{
-      label:'Total neto',data,
-      backgroundColor: isF ? '#1a1a1a' : data.map((_,i)=>i===data.length-1?'#1a1a1a':'#d4d4d4'),
-      borderRadius:5,borderSkipped:false
-    }]},
-    options:{
-      responsive:true,maintainAspectRatio:false,
+    data:{labels,datasets:[{label:'Total neto',data,
+      backgroundColor:isF?'#1a1a1a':data.map((_,i)=>i===data.length-1?'#1a1a1a':'#d4d4d4'),
+      borderRadius:5,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:false,
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'$'+c.raw.toLocaleString('es-CO')+'M'}}},
-      scales:{
-        x:{ticks:{font:{size:10},autoSkip:false,maxRotation:45},grid:{display:false}},
-        y:{ticks:{font:{size:10},callback:v=>'$'+v+'M'},grid:{color:'#f0f0f0'},beginAtZero:true}
-      },
-      animation:{duration:350}
-    }
+      scales:{x:{ticks:{font:{size:10},autoSkip:false,maxRotation:45},grid:{display:false}},
+        y:{ticks:{font:{size:10},callback:v=>'$'+v+'M'},grid:{color:'#f0f0f0'},beginAtZero:true}},
+      animation:{duration:350}}
   });
 }
-
-// ─── CLICKABLE TABLE ─────────────────────────────────────────────────────────
-function renderClickTable(id, data, colLabel, colKey, ranked) {
-  const max   = data[0]?.t || 1;
-  const total = data.reduce((a,b)=>a+b.t,0);
-  const thead = ranked
-    ? `<thead><tr><th>#</th><th>${colLabel}</th><th class="r">Venta</th><th class="r">%</th></tr></thead>`
-    : `<thead><tr><th>${colLabel}</th><th class="r">Venta</th><th class="r">%</th></tr></thead>`;
-  const trows = data.map((r,i)=>{
-    const pct  = total>0 ? ((r.t/total)*100).toFixed(1) : '0.0';
-    const bar  = `<div class="bar-bg"><div class="bar-fill" style="width:${Math.round((r.t/max)*100)}%"></div></div>`;
-    const rk   = ranked ? `<td><span class="rank ${i===0?'rk1':i===1?'rk2':i===2?'rk3':'rkn'}">${i+1}</span></td>` : '';
-    const sv   = r.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
-    const sk   = colKey.replace(/'/g,"\\'");
-    const sl   = colLabel.replace(/'/g,"\\'");
-    return `<tr class="clickable" data-col="${colKey}" data-val="${r.n.replace(/"/g,'&quot;')}" onclick="applyFilter('${sk}','${sv}','${sl}')">
-      ${rk}
-      <td><div>${cap(r.n)}</div>${bar}</td>
-      <td class="r" style="white-space:nowrap;font-variant-numeric:tabular-nums">${COP(r.t)}</td>
-      <td class="r pct">${pct}%</td>
-    </tr>`;
+function renderClickTable(id,data,colLabel,colKey,ranked) {
+  const max=data[0]?.t||1,total=data.reduce((a,b)=>a+b.t,0);
+  const thead=ranked?`<thead><tr><th>#</th><th>${colLabel}</th><th class="r">Venta</th><th class="r">%</th></tr></thead>`:`<thead><tr><th>${colLabel}</th><th class="r">Venta</th><th class="r">%</th></tr></thead>`;
+  const trows=data.map((r,i)=>{
+    const pct=total>0?((r.t/total)*100).toFixed(1):'0.0';
+    const bar=`<div class="bar-bg"><div class="bar-fill" style="width:${Math.round((r.t/max)*100)}%"></div></div>`;
+    const rk=ranked?`<td><span class="rank ${i===0?'rk1':i===1?'rk2':i===2?'rk3':'rkn'}">${i+1}</span></td>`:'';
+    const sv=r.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const sk=colKey.replace(/'/g,"\\'"),sl=colLabel.replace(/'/g,"\\'");
+    return `<tr class="clickable" data-col="${colKey}" data-val="${r.n.replace(/"/g,'&quot;')}" onclick="applyFilter('${sk}','${sv}','${sl}')">${rk}<td><div>${cap(r.n)}</div>${bar}</td><td class="r" style="white-space:nowrap;font-variant-numeric:tabular-nums">${COP(r.t)}</td><td class="r pct">${pct}%</td></tr>`;
   }).join('');
-  const totalRow = `<tr>${ranked?'<td></td>':''}<td>Suma total</td><td class="r">${COP(total)}</td><td></td></tr>`;
-  document.getElementById(id).innerHTML = thead+`<tbody>${trows}${totalRow}</tbody>`;
+  const totalRow=`<tr>${ranked?'<td></td>':''}<td>Suma total</td><td class="r">${COP(total)}</td><td></td></tr>`;
+  document.getElementById(id).innerHTML=thead+`<tbody>${trows}${totalRow}</tbody>`;
 }
 
 // ─── DRAG & DROP ─────────────────────────────────────────────────────────────
-const dz = document.getElementById('dropZ');
+const dz=document.getElementById('dropZ');
 ['dragover','dragenter'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag','visible')}));
 ['dragleave','dragend'].forEach(ev=>document.addEventListener(ev,e=>{if(!e.relatedTarget)dz.classList.remove('drag')}));
-document.addEventListener('drop',e=>{
-  e.preventDefault(); dz.classList.remove('drag');
-  const f=e.dataTransfer.files[0]; if(f) handleFileInput(f);
-});
+document.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)handleFileInput(f);});
 
-// ─── BOOT: RESTORE FROM STORAGE ──────────────────────────────────────────────
-(function init(){
-  const restored = loadFromStorage();
-  if(restored){
-    rebuildDays();
-    updateTopbarLabel();
-    document.getElementById('dropZ').classList.remove('visible');
-    document.getElementById('dash').style.display = 'block';
-    document.getElementById('btnClear').style.display = 'flex';
-    renderFilePills();
-    renderAll(RAW);
-    updateStorageInfo();
-  }
-})();
+// ─── AUTO REFRESH cada 60 segundos ───────────────────────────────────────────
+setInterval(()=>{ if(RAW.length>0) fetchAndRender(); }, 60000);
+
+// ─── BOOT ────────────────────────────────────────────────────────────────────
+showLoading('Conectando con la nube...');
+fetchAndRender().finally(hideLoading);
 </script>
 </body>
 </html>
