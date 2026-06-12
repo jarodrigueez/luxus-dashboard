@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Ventas · Luxus</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;color:#1a1a1a;min-height:100vh}
+.topbar{background:#fff;border-bottom:1px solid #e8e8e8;padding:13px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;gap:12px;flex-wrap:wrap}
+.topbar-left{display:flex;align-items:center;gap:12px;min-width:0}
+.logo{width:34px;height:34px;background:#1a1a1a;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;letter-spacing:1px;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:600;color:#1a1a1a}
+.topbar-sub{font-size:11px;color:#999;margin-top:1px}
+.topbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{display:flex;align-items:center;gap:6px;font-size:12px;padding:7px 13px;border-radius:8px;border:1px solid #ddd;background:#fff;color:#333;cursor:pointer;white-space:nowrap;font-family:inherit;transition:all .15s}
+.btn:hover{background:#f5f5f5;border-color:#bbb}
+.btn.danger{border-color:#f5c6c6;color:#c62828}.btn.danger:hover{background:#fff5f5}
+.btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.main{max-width:1200px;margin:0 auto;padding:20px 20px 40px}
+.drop-zone{border:2px dashed #ddd;border-radius:12px;padding:36px;text-align:center;cursor:pointer;background:#fff;margin-bottom:20px;transition:all .2s;display:none}
+.drop-zone.visible{display:block}
+.drop-zone.drag{border-color:#1a1a1a;background:#fafafa}
+.drop-zone .dz-icon{width:36px;height:36px;stroke:#ccc;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;margin-bottom:10px}
+.drop-zone p{font-size:14px;color:#666;font-weight:500}
+.drop-zone span{font-size:12px;color:#bbb}
+.files-bar{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #efefef;border-radius:10px;padding:9px 14px;margin-bottom:14px;flex-wrap:wrap}
+.files-bar-label{font-size:11px;color:#aaa;white-space:nowrap;margin-right:2px}
+.file-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:20px;border:1px solid #e8e8e8;background:#fafafa;color:#555;white-space:nowrap}
+.file-pill svg{width:11px;height:11px;stroke:#aaa;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.file-pill .fp-x{background:none;border:none;cursor:pointer;font-size:13px;line-height:1;color:#ccc;padding:0;margin-left:2px;transition:color .1s}
+.file-pill .fp-x:hover{color:#c62828}
+.save-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#2e7d32;background:#e8f5e9;padding:4px 10px;border-radius:20px;opacity:0;transition:opacity .4s}
+.save-badge.show{opacity:1}
+.save-badge svg{width:11px;height:11px;stroke:#2e7d32;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.mc{background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #efefef}
+.mc-icon{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.mc-icon svg{width:14px;height:14px;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;fill:none}
+.ig{background:#e8f5e9}.ig svg{stroke:#2e7d32}
+.ib{background:#e3f2fd}.ib svg{stroke:#1565c0}
+.io{background:#fff3e0}.io svg{stroke:#e65100}
+.ir{background:#fce4ec}.ir svg{stroke:#c62828}
+.mc-lbl{font-size:10.5px;color:#999;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.mc-val{font-size:20px;font-weight:700;color:#1a1a1a;letter-spacing:-.5px}
+.mc-sub{font-size:11px;color:#bbb;margin-top:2px}
+.filter-bar{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #efefef;border-radius:10px;padding:9px 14px;margin-bottom:14px;flex-wrap:wrap}
+.fb-label{font-size:12px;color:#999;white-space:nowrap}
+.active-filter{display:flex;align-items:center;gap:6px;background:#1a1a1a;color:#fff;font-size:12px;padding:4px 10px;border-radius:20px;font-weight:500}
+.active-filter button{background:none;border:none;color:#fff;cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:2px;opacity:.7}
+.active-filter button:hover{opacity:1}
+.no-filter{font-size:12px;color:#bbb;font-style:italic}
+.row2{display:grid;grid-template-columns:1.55fr 1fr;gap:12px;margin-bottom:12px}
+.row3{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.card{background:#fff;border-radius:10px;padding:16px 18px;border:1px solid #efefef}
+.card-title{font-size:12.5px;font-weight:600;color:#1a1a1a;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.card-title-left{display:flex;align-items:center;gap:7px}
+.card-title svg{width:13px;height:13px;stroke:#aaa;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.chart-hint{font-size:10px;color:#888;font-style:italic;font-weight:500;background:#f5f5f5;padding:2px 8px;border-radius:20px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#bbb;padding:4px 7px;border-bottom:1px solid #f0f0f0;text-align:left}
+th.r,td.r{text-align:right}
+td{padding:6px 7px;border-bottom:1px solid #f7f7f7;color:#1a1a1a;vertical-align:middle}
+tr:last-child td{border-bottom:none;font-weight:700}
+tbody tr.clickable{cursor:pointer;transition:background .1s}
+tbody tr.clickable:hover td{background:#f7f7f7}
+tbody tr.clickable.active td{background:#f0f0f0}
+tbody tr.clickable.active td:first-child{border-left:3px solid #1a1a1a;padding-left:4px}
+.bar-bg{background:#f0f0f0;border-radius:3px;height:4px;margin-top:3px}
+.bar-fill{height:4px;border-radius:3px;background:#1a1a1a;transition:width .3s}
+.pct{font-size:10px;color:#bbb}
+.rank{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;font-size:9px;font-weight:700}
+.rk1{background:#fff8e1;color:#f57f17}.rk2{background:#f3f3f3;color:#666}.rk3{background:#fce4ec;color:#c62828}.rkn{background:#f5f5f5;color:#aaa}
+.footer{text-align:center;font-size:11px;color:#ccc;padding:12px 0 8px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:14px;padding:24px 28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.15)}
+.modal h2{font-size:15px;font-weight:600;margin-bottom:8px}
+.modal p{font-size:13px;color:#666;margin-bottom:20px;line-height:1.6}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+.mbtn{font-size:12px;padding:7px 16px;border-radius:8px;border:1px solid;cursor:pointer;font-family:inherit}
+.mbtn.primary{background:#1a1a1a;color:#fff;border-color:#1a1a1a}.mbtn.primary:hover{background:#333}
+.mbtn.sec{background:#fff;color:#333;border-color:#ddd}.mbtn.sec:hover{background:#f5f5f5}
+.storage-info{font-size:11px;color:#aaa;display:flex;align-items:center;gap:5px;margin-top:8px}
+.storage-info svg{width:11px;height:11px;stroke:#aaa;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:920px){.metrics{grid-template-columns:1fr 1fr}.row2,.row3{grid-template-columns:1fr}.main{padding:14px 14px 40px}}
+@media(max-width:560px){.metrics{grid-template-columns:1fr 1fr}.topbar{padding:10px 14px}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo">LX</div>
+    <div>
+      <div class="topbar-title">Dashboard de Ventas · Luxus</div>
+      <div class="topbar-sub" id="fileLabel">Carga tu primer reporte para comenzar</div>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <span class="save-badge" id="saveBadge">
+      <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      Guardado
+    </span>
+    <button class="btn" onclick="document.getElementById('fi').click()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Agregar reporte
+    </button>
+    <button class="btn danger" id="btnClear" style="display:none" onclick="confirmClear()">
+      <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+      Borrar todo
+    </button>
+  </div>
+  <input type="file" id="fi" accept=".xls,.xlsx,.csv" style="display:none" onchange="handleFileInput(this.files[0])">
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2>¿Borrar todos los datos?</h2>
+    <p>Se eliminarán todos los reportes cargados, incluyendo los guardados en este navegador. Esta acción no se puede deshacer.</p>
+    <div class="modal-actions">
+      <button class="mbtn sec" onclick="closeModal()">Cancelar</button>
+      <button class="mbtn primary" onclick="doClear()">Sí, borrar todo</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="drop-zone visible" id="dropZ" onclick="document.getElementById('fi').click()">
+    <svg class="dz-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+    <p>Arrastra aquí tu primer reporte</p>
+    <span>Compatible con .xls · .xlsx · .csv — reporte de remisiones de venta</span>
+  </div>
+
+  <div id="dash" style="display:none">
+    <div class="files-bar">
+      <span class="files-bar-label">Reportes cargados:</span>
+      <div id="filesPills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      <div id="storageInfo" class="storage-info" style="margin-left:auto">
+        <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+        <span id="storageText"></span>
+      </div>
+    </div>
+
+    <div class="metrics" id="mets"></div>
+
+    <div class="filter-bar">
+      <span class="fb-label">Filtro activo:</span>
+      <span class="no-filter" id="noFilter">Ninguno — haz clic en cualquier fila para ver su comportamiento diario</span>
+      <div id="activeFilterPill" style="display:none"></div>
+    </div>
+
+    <div class="row2">
+      <div class="card">
+        <div class="card-title">
+          <div class="card-title-left">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            Ventas por día
+          </div>
+          <span class="chart-hint" id="chartHint" style="display:none"></span>
+        </div>
+        <div style="position:relative;height:210px"><canvas id="dayChart" role="img" aria-label="Ventas por día"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="card-title-left">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/><path d="M2 12h20"/></svg>
+          Ventas por sucursal
+        </div></div>
+        <table id="tSuc"></table>
+      </div>
+    </div>
+
+    <div class="row3">
+      <div class="card">
+        <div class="card-title"><div class="card-title-left">
+          <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Ventas por ubicación
+        </div></div>
+        <table id="tUbic"></table>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="card-title-left">
+          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+          Top vendedores
+        </div></div>
+        <table id="tVend"></table>
+      </div>
+    </div>
+
+    <div class="row3">
+      <div class="card">
+        <div class="card-title"><div class="card-title-left">
+          <svg viewBox="0 0 24 24"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+          Ventas por departamento
+        </div></div>
+        <table id="tDept"></table>
+      </div>
+      <div class="card">
+        <div class="card-title"><div class="card-title-left">
+          <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Ventas por ciudad
+        </div></div>
+        <table id="tCity"></table>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Dashboard Luxus · Los datos se guardan automáticamente en este navegador · Haz clic en cualquier fila para filtrar</div>
+</div>
+
+<script>
+// ─── STORAGE KEY ─────────────────────────────────────────────────────────────
+const STORE_KEY = 'luxus_dashboard_v2';
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let RAW = [];          // all accumulated rows
+let fileRows = [];     // rows per file (for removal)
+let loadedFiles = [];  // metadata per file
+let allDays = [];
+let activeFilter = null;
+let dayChartInst = null;
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const COP = v => '$' + Math.round(v).toLocaleString('es-CO');
+const cap = s => String(s).split(' ').map(w => w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
+const getDate = r => {
+  let f = r['Fecha de creación'] || r['Fecha'] || '';
+  if(typeof f === 'number') f = new Date(Math.round((f-25569)*86400*1000)).toISOString().slice(0,10);
+  return String(f).slice(0,10);
+};
+const keyOf = r => {
+  const id = r['ID remisión'] || r['ID remision'] || r['Id remisión'] || r['id_remision'];
+  if(id && String(id).trim()) return 'id:'+String(id).trim();
+  return getDate(r)+'|'+String(r['Cliente']||'').trim()+'|'+String(r['Total neto']||'').trim();
+};
+
+// ─── PERSIST ─────────────────────────────────────────────────────────────────
+let saveTimer = null;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveToStorage, 600);
+}
+
+function saveToStorage() {
+  try {
+    const payload = JSON.stringify({ RAW, fileRows, loadedFiles });
+    localStorage.setItem(STORE_KEY, payload);
+    // Show "Guardado" badge briefly
+    const badge = document.getElementById('saveBadge');
+    badge.classList.add('show');
+    setTimeout(() => badge.classList.remove('show'), 2000);
+    updateStorageInfo();
+  } catch(e) {
+    // localStorage full (5MB limit) — warn user
+    if(e.name === 'QuotaExceededError') {
+      alert('⚠️ El almacenamiento del navegador está lleno.\nConsidera borrar reportes antiguos con la ✕ en cada pastilla.');
+    }
+  }
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) return false;
+    const data = JSON.parse(raw);
+    RAW = data.RAW || [];
+    fileRows = data.fileRows || [];
+    loadedFiles = data.loadedFiles || [];
+    return RAW.length > 0;
+  } catch(e) { return false; }
+}
+
+function updateStorageInfo() {
+  try {
+    const bytes = new Blob([localStorage.getItem(STORE_KEY)||'']).size;
+    const kb = (bytes/1024).toFixed(0);
+    const mb = (bytes/1024/1024).toFixed(2);
+    document.getElementById('storageText').textContent =
+      bytes < 1024*500 ? kb+' KB guardados' : mb+' MB guardados (límite ~5 MB)';
+  } catch(e){}
+}
+
+// ─── DEDUPLICATION ───────────────────────────────────────────────────────────
+function dedupeRows(existing, incoming) {
+  const seen = new Set(existing.map(keyOf));
+  return incoming.filter(r => !seen.has(keyOf(r)));
+}
+
+// ─── FILE LOADING ─────────────────────────────────────────────────────────────
+function handleFileInput(file) {
+  if(!file) return;
+  document.getElementById('fi').value = '';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      let rows;
+      if(file.name.toLowerCase().endsWith('.csv')){
+        const text = new TextDecoder('latin1').decode(e.target.result);
+        const lines = text.trim().split('\n');
+        const hdrs = lines[0].split(',').map(h=>h.replace(/"/g,'').trim());
+        rows = lines.slice(1).map(l=>{
+          const v = l.split(',').map(x=>x.replace(/"/g,'').trim());
+          const o={};
+          hdrs.forEach((h,i)=>{ const n=parseFloat(v[i]); o[h]=isNaN(n)?v[i]:n; });
+          return o;
+        });
+      } else {
+        const wb = XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+        rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+      }
+      if(!rows.length){ alert('El archivo está vacío o no se pudo leer.'); return; }
+
+      const newRows = dedupeRows(RAW, rows);
+      const dupCount = rows.length - newRows.length;
+
+      if(newRows.length === 0){
+        alert(`Este reporte no tiene registros nuevos.\nTodos sus ${rows.length} registros ya estaban cargados.`);
+        return;
+      }
+
+      RAW = RAW.concat(newRows);
+      fileRows.push(newRows);
+
+      const fileDays = [...new Set(newRows.map(r=>getDate(r)).filter(d=>d.length===10))].sort();
+      const drLabel = fileDays.length >= 2
+        ? fileDays[0].slice(5).replace('-','/')+' — '+fileDays[fileDays.length-1].slice(5).replace('-','/')
+        : (fileDays[0]?.slice(5).replace('-','/') || '?');
+
+      loadedFiles.push({
+        name: file.name.length > 30 ? file.name.slice(0,27)+'…' : file.name,
+        count: newRows.length,
+        dateRange: drLabel
+      });
+
+      rebuildDays();
+      updateTopbarLabel();
+      document.getElementById('dropZ').classList.remove('visible');
+      document.getElementById('dash').style.display = 'block';
+      document.getElementById('btnClear').style.display = 'flex';
+
+      activeFilter = null;
+      clearFilterUI();
+      renderFilePills();
+      renderAll(RAW);
+      scheduleSave(); // ← save after every new file
+    } catch(err){ alert('Error leyendo el archivo:\n'+err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─── REBUILD HELPERS ─────────────────────────────────────────────────────────
+function rebuildDays() {
+  const daySet = {};
+  RAW.forEach(r=>{ const d=getDate(r); if(d.length===10) daySet[d]=1; });
+  allDays = Object.keys(daySet).sort();
+}
+
+function updateTopbarLabel() {
+  const td = allDays;
+  const rl = td.length>=2
+    ? td[0].slice(5).replace('-','/')+' al '+td[td.length-1].slice(5).replace('-','/')
+    : (td[0]?.slice(5).replace('-','/') || '');
+  document.getElementById('fileLabel').textContent = rl+' · '+RAW.length.toLocaleString('es-CO')+' remisiones';
+}
+
+// ─── FILE PILLS ──────────────────────────────────────────────────────────────
+function renderFilePills() {
+  document.getElementById('filesPills').innerHTML = loadedFiles.map((f,i)=>`
+    <span class="file-pill">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      ${f.name} <span style="color:#bbb">(${f.count.toLocaleString('es-CO')} reg · ${f.dateRange})</span>
+      <button class="fp-x" onclick="removeFile(${i})" title="Quitar este reporte">✕</button>
+    </span>`).join('');
+}
+
+// ─── REMOVE SINGLE FILE ──────────────────────────────────────────────────────
+function removeFile(idx) {
+  fileRows.splice(idx, 1);
+  loadedFiles.splice(idx, 1);
+  RAW = fileRows.flat();
+  rebuildDays();
+  if(RAW.length === 0){ doClear(true); return; }
+  updateTopbarLabel();
+  activeFilter = null;
+  clearFilterUI();
+  renderFilePills();
+  renderAll(RAW);
+  scheduleSave();
+}
+
+// ─── CLEAR ALL ───────────────────────────────────────────────────────────────
+function confirmClear(){ document.getElementById('modalBg').classList.add('open'); }
+function closeModal()  { document.getElementById('modalBg').classList.remove('open'); }
+function doClear(silent) {
+  closeModal();
+  RAW = []; fileRows = []; loadedFiles = []; allDays = []; activeFilter = null;
+  clearFilterUI();
+  localStorage.removeItem(STORE_KEY);
+  document.getElementById('fileLabel').textContent = 'Carga tu primer reporte para comenzar';
+  document.getElementById('dash').style.display = 'none';
+  document.getElementById('dropZ').classList.add('visible');
+  document.getElementById('btnClear').style.display = 'none';
+  document.getElementById('filesPills').innerHTML = '';
+  if(dayChartInst){ dayChartInst.destroy(); dayChartInst = null; }
+}
+
+// ─── FILTER ──────────────────────────────────────────────────────────────────
+function applyFilter(col, val, labelText) {
+  if(activeFilter && activeFilter.col===col && activeFilter.val===val){ clearFilter(); return; }
+  activeFilter = {col, val};
+  const filtered = RAW.filter(r => String(r[col]||'').trim() === val);
+  document.getElementById('noFilter').style.display = 'none';
+  const pill = document.getElementById('activeFilterPill');
+  pill.style.display = 'flex';
+  pill.innerHTML = `<div class="active-filter"><span>${labelText}: <strong>${cap(val)}</strong></span><button onclick="clearFilter()" title="Quitar filtro">✕</button></div>`;
+  const hint = document.getElementById('chartHint');
+  hint.textContent = cap(val); hint.style.display = '';
+  renderDayChart(filtered);
+  document.querySelectorAll('tbody tr.clickable').forEach(tr =>
+    tr.classList.toggle('active', tr.dataset.col===col && tr.dataset.val===val));
+}
+
+function clearFilter() {
+  activeFilter = null;
+  clearFilterUI();
+  renderDayChart(RAW);
+  document.querySelectorAll('tbody tr.clickable').forEach(tr => tr.classList.remove('active'));
+}
+
+function clearFilterUI() {
+  document.getElementById('noFilter').style.display = '';
+  document.getElementById('activeFilterPill').style.display = 'none';
+  const hint = document.getElementById('chartHint');
+  if(hint){ hint.textContent = ''; hint.style.display = 'none'; }
+}
+
+// ─── RENDER ALL ──────────────────────────────────────────────────────────────
+function renderAll(rows) {
+  const sum = k => rows.map(r=>Number(r[k]||0)).reduce((a,b)=>a+b,0);
+  const tot = sum('Total neto'), bruto = sum('Total bruto'), desc = sum('Descuentos');
+  renderMetrics(tot, bruto, desc, rows.length ? tot/rows.length : 0, rows.length);
+  renderDayChart(rows);
+  const grp = col => {
+    const g={};
+    rows.forEach(r=>{ const k=String(r[col]||'Sin dato').trim()||'Sin dato'; g[k]=(g[k]||0)+Number(r['Total neto']||0); });
+    return Object.entries(g).map(([n,t])=>({n,t})).filter(x=>x.t>0).sort((a,b)=>b.t-a.t);
+  };
+  renderClickTable('tSuc',  grp('Sucursal'),           'Sucursal',          'Sucursal',           false);
+  renderClickTable('tUbic', grp('Ubicación de venta'), 'Ubicación',         'Ubicación de venta', false);
+  renderClickTable('tVend', grp('Vendedor').slice(0,15),'Vendedor',          'Vendedor',           true);
+  renderClickTable('tDept', grp('Departamento'),        'Departamento',      'Departamento',       false);
+  renderClickTable('tCity', grp('Ciudad').slice(0,15),  'Ciudad',            'Ciudad',             false);
+}
+
+// ─── METRICS ─────────────────────────────────────────────────────────────────
+function renderMetrics(tot, bruto, desc, ticket, cnt) {
+  const pct = bruto>0 ? ((desc/bruto)*100).toFixed(1)+'% desc.' : '0%';
+  document.getElementById('mets').innerHTML = [
+    {ic:'ig',icon:'<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',lbl:'Total neto',val:COP(tot),sub:COP(bruto)+' bruto'},
+    {ic:'ib',icon:'<path d="M14 2H6a2 2 0 0 0-2 2v16c0 1.1.9 2 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>',lbl:'Remisiones',val:cnt.toLocaleString('es-CO'),sub:'pedidos facturados'},
+    {ic:'io',icon:'<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39A2 2 0 0 0 9.68 19h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',lbl:'Ticket promedio',val:COP(ticket),sub:'por remisión'},
+    {ic:'ir',icon:'<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',lbl:'Descuentos',val:COP(desc),sub:pct}
+  ].map(it=>`<div class="mc"><div class="mc-icon ${it.ic}"><svg viewBox="0 0 24 24">${it.icon}</svg></div><div class="mc-lbl">${it.lbl}</div><div class="mc-val">${it.val}</div><div class="mc-sub">${it.sub}</div></div>`).join('');
+}
+
+// ─── DAY CHART ───────────────────────────────────────────────────────────────
+function renderDayChart(rows) {
+  const g={};
+  rows.forEach(r=>{ const d=getDate(r); if(d.length===10) g[d]=(g[d]||0)+Number(r['Total neto']||0); });
+  const labels = allDays.map(d=>d.slice(5).replace('-','/'));
+  const data   = allDays.map(d=>Math.round((g[d]||0)/1000000*10)/10);
+  const isF    = activeFilter !== null;
+  if(dayChartInst) dayChartInst.destroy();
+  dayChartInst = new Chart(document.getElementById('dayChart'),{
+    type:'bar',
+    data:{labels,datasets:[{
+      label:'Total neto',data,
+      backgroundColor: isF ? '#1a1a1a' : data.map((_,i)=>i===data.length-1?'#1a1a1a':'#d4d4d4'),
+      borderRadius:5,borderSkipped:false
+    }]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>'$'+c.raw.toLocaleString('es-CO')+'M'}}},
+      scales:{
+        x:{ticks:{font:{size:10},autoSkip:false,maxRotation:45},grid:{display:false}},
+        y:{ticks:{font:{size:10},callback:v=>'$'+v+'M'},grid:{color:'#f0f0f0'},beginAtZero:true}
+      },
+      animation:{duration:350}
+    }
+  });
+}
+
+// ─── CLICKABLE TABLE ─────────────────────────────────────────────────────────
+function renderClickTable(id, data, colLabel, colKey, ranked) {
+  const max   = data[0]?.t || 1;
+  const total = data.reduce((a,b)=>a+b.t,0);
+  const thead = ranked
+    ? `<thead><tr><th>#</th><th>${colLabel}</th><th class="r">Venta</th><th class="r">%</th></tr></thead>`
+    : `<thead><tr><th>${colLabel}</th><th class="r">Venta</th><th class="r">%</th></tr></thead>`;
+  const trows = data.map((r,i)=>{
+    const pct  = total>0 ? ((r.t/total)*100).toFixed(1) : '0.0';
+    const bar  = `<div class="bar-bg"><div class="bar-fill" style="width:${Math.round((r.t/max)*100)}%"></div></div>`;
+    const rk   = ranked ? `<td><span class="rank ${i===0?'rk1':i===1?'rk2':i===2?'rk3':'rkn'}">${i+1}</span></td>` : '';
+    const sv   = r.n.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    const sk   = colKey.replace(/'/g,"\\'");
+    const sl   = colLabel.replace(/'/g,"\\'");
+    return `<tr class="clickable" data-col="${colKey}" data-val="${r.n.replace(/"/g,'&quot;')}" onclick="applyFilter('${sk}','${sv}','${sl}')">
+      ${rk}
+      <td><div>${cap(r.n)}</div>${bar}</td>
+      <td class="r" style="white-space:nowrap;font-variant-numeric:tabular-nums">${COP(r.t)}</td>
+      <td class="r pct">${pct}%</td>
+    </tr>`;
+  }).join('');
+  const totalRow = `<tr>${ranked?'<td></td>':''}<td>Suma total</td><td class="r">${COP(total)}</td><td></td></tr>`;
+  document.getElementById(id).innerHTML = thead+`<tbody>${trows}${totalRow}</tbody>`;
+}
+
+// ─── DRAG & DROP ─────────────────────────────────────────────────────────────
+const dz = document.getElementById('dropZ');
+['dragover','dragenter'].forEach(ev=>document.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag','visible')}));
+['dragleave','dragend'].forEach(ev=>document.addEventListener(ev,e=>{if(!e.relatedTarget)dz.classList.remove('drag')}));
+document.addEventListener('drop',e=>{
+  e.preventDefault(); dz.classList.remove('drag');
+  const f=e.dataTransfer.files[0]; if(f) handleFileInput(f);
+});
+
+// ─── BOOT: RESTORE FROM STORAGE ──────────────────────────────────────────────
+(function init(){
+  const restored = loadFromStorage();
+  if(restored){
+    rebuildDays();
+    updateTopbarLabel();
+    document.getElementById('dropZ').classList.remove('visible');
+    document.getElementById('dash').style.display = 'block';
+    document.getElementById('btnClear').style.display = 'flex';
+    renderFilePills();
+    renderAll(RAW);
+    updateStorageInfo();
+  }
+})();
+</script>
+</body>
+</html>
